@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Box Breathing · 5·5·5·5</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0e14;
+    --border: #1e2d3d;
+    --glow: #4fc3f7;
+    --glow-dim: rgba(79, 195, 247, 0.15);
+    --glow-mid: rgba(79, 195, 247, 0.4);
+    --text: #cdd6e0;
+    --text-dim: #4a5a6a;
+    --phase-color: #4fc3f7;
+    --box-size: 280px;
+    --dot-size: 12px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse 60% 50% at 50% 50%, rgba(79,195,247,0.04) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 56px;
+  }
+
+  .header { text-align: center; }
+  .header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 13px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    font-weight: 400;
+    font-style: italic;
+  }
+
+  .stage {
+    position: relative;
+    width: var(--box-size);
+    height: var(--box-size);
+  }
+
+  .box-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .box-line {
+    stroke: var(--border);
+    stroke-width: 1;
+    fill: none;
+    transition: stroke 0.5s;
+  }
+  .box-line.active { stroke: var(--glow-mid); }
+
+  .corner {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--border);
+    transform: translate(-50%, -50%);
+    transition: background 0.4s, box-shadow 0.4s;
+  }
+  .corner.lit {
+    background: var(--glow);
+    box-shadow: 0 0 8px var(--glow);
+  }
+  .corner.tl { top: 0; left: 0; }
+  .corner.tr { top: 0; left: 100%; }
+  .corner.br { top: 100%; left: 100%; }
+  .corner.bl { top: 100%; left: 0; }
+
+  .dot {
+    position: absolute;
+    width: var(--dot-size);
+    height: var(--dot-size);
+    border-radius: 50%;
+    background: var(--glow);
+    box-shadow: 0 0 16px var(--glow), 0 0 40px var(--glow-mid), 0 0 80px var(--glow-dim);
+    transform: translate(-50%, -50%);
+    will-change: top, left;
+  }
+
+  .center-content {
+    position: absolute;
+    inset: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .phase-label {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    font-style: italic;
+    color: var(--phase-color);
+    letter-spacing: 0.02em;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  .count {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 300;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+  }
+
+  .controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .btn-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .btn-start {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--glow);
+    background: transparent;
+    border: 1px solid var(--border);
+    padding: 12px 32px;
+    cursor: pointer;
+    transition: border-color 0.3s, background 0.3s;
+    outline: none;
+  }
+  .btn-start:hover { border-color: var(--glow); background: var(--glow-dim); }
+  .btn-start:active { opacity: 0.7; }
+
+  .btn-sound {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--text-dim);
+    background: transparent;
+    border: 1px solid var(--border);
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: border-color 0.3s, color 0.3s;
+    outline: none;
+  }
+  .btn-sound:hover { border-color: var(--text-dim); color: var(--text); }
+  .btn-sound.on { color: var(--glow); border-color: var(--glow-mid); }
+
+  .rounds-display {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  .pips { display: flex; gap: 8px; }
+  .pip {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: transparent;
+    transition: background 0.3s, border-color 0.3s;
+  }
+  .pip.done {
+    background: var(--glow);
+    border-color: var(--glow);
+    box-shadow: 0 0 6px var(--glow);
+  }
+
+  .instruction {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    text-align: center;
+    min-height: 14px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <h1>Box Breathing · 5 · 5 · 5 · 5</h1>
+  </div>
+
+  <div class="stage" id="stage">
+    <svg class="box-svg" viewBox="0 0 280 280" xmlns="http://www.w3.org/2000/svg">
+      <line id="line-top"    class="box-line" x1="0"   y1="0"   x2="280" y2="0"/>
+      <line id="line-right"  class="box-line" x1="280" y1="0"   x2="280" y2="280"/>
+      <line id="line-bottom" class="box-line" x1="280" y1="280" x2="0"   y2="280"/>
+      <line id="line-left"   class="box-line" x1="0"   y1="280" x2="0"   y2="0"/>
+    </svg>
+
+    <div class="corner tl" id="c-tl"></div>
+    <div class="corner tr" id="c-tr"></div>
+    <div class="corner br" id="c-br"></div>
+    <div class="corner bl" id="c-bl"></div>
+
+    <div class="dot" id="dot"></div>
+
+    <div class="center-content">
+      <div class="phase-label" id="phase-label">—</div>
+      <div class="count" id="count"></div>
+    </div>
+  </div>
+
+  <div class="instruction" id="instruction">Drücke Start um zu beginnen</div>
+
+  <div class="controls">
+    <div class="btn-row">
+      <button class="btn-start" id="btn">Start</button>
+      <button class="btn-sound on" id="btn-sound">♪ Ton an</button>
+    </div>
+    <div class="pips" id="pips"></div>
+    <div class="rounds-display" id="rounds-text"></div>
+  </div>
+</div>
+
+<script>
+// ─── Config ─────────────────────────────────────────────────────────────────
+const DURATION     = 5000;
+const TOTAL_ROUNDS = 6;
+
+const phases = [
+  { name: 'Einatmen',  instruction: 'tief durch die Nase einatmen',    side: 'left',   from: [0,100],   to: [0,0]      },
+  { name: 'Halten',    instruction: 'Luft oben halten',                 side: 'top',    from: [0,0],     to: [100,0]    },
+  { name: 'Ausatmen',  instruction: 'langsam durch den Mund ausatmen',  side: 'right',  from: [100,0],   to: [100,100]  },
+  { name: 'Halten',    instruction: 'Lunge unten leer halten',          side: 'bottom', from: [100,100], to: [0,100]    },
+];
+
+// ─── Audio ──────────────────────────────────────────────────────────────────
+let audioCtx  = null;
+let reverbBuf = null;
+let soundOn   = true;
+
+function getCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function buildReverbBuf(ctx) {
+  if (reverbBuf) return reverbBuf;
+  const sr = ctx.sampleRate, len = sr * 4;
+  const buf = ctx.createBuffer(2, len, sr);
+  for (let c = 0; c < 2; c++) {
+    const d = buf.getChannelData(c);
+    for (let i = 0; i < len; i++)
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 1.8);
+  }
+  reverbBuf = buf;
+  return buf;
+}
+
+function makeReverb(ctx) {
+  const conv = ctx.createConvolver();
+  conv.buffer = buildReverbBuf(ctx);
+  conv.connect(ctx.destination);
+  return conv;
+}
+
+// Play a chord — each partial is [freq, gain]
+// tone rises if rising=true, falls if false, stays if null
+function playChord({ partials, duration, attack, release, rising = null, wet = 0.72 }) {
+  if (!soundOn) return;
+  const ctx = getCtx();
+  const reverb = makeReverb(ctx);
+  const dur = duration / 1000;
+  const now = ctx.currentTime;
+
+  partials.forEach(([freq, pgain]) => {
+    const osc  = ctx.createOscillator();
+    const filt = ctx.createBiquadFilter();
+    const g    = ctx.createGain();
+
+    osc.type = 'sine';
+    if (rising === true) {
+      osc.frequency.setValueAtTime(freq * 0.95, now);
+      osc.frequency.linearRampToValueAtTime(freq, now + dur);
+    } else if (rising === false) {
+      osc.frequency.setValueAtTime(freq, now);
+      osc.frequency.linearRampToValueAtTime(freq * 0.94, now + dur);
+    } else {
+      osc.frequency.value = freq;
+    }
+
+    filt.type = 'lowpass';
+    filt.frequency.value = rising === true ? 900 : rising === false ? 650 : 500;
+
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(pgain, now + attack / 1000);
+    g.gain.setValueAtTime(pgain, now + dur - release / 1000);
+    g.gain.linearRampToValueAtTime(0, now + dur);
+
+    const dryG = ctx.createGain(); dryG.gain.value = 1 - wet;
+    const wetG = ctx.createGain(); wetG.gain.value = wet;
+
+    osc.connect(filt);
+    filt.connect(g);
+    g.connect(dryG); dryG.connect(ctx.destination);
+    g.connect(wetG); wetG.connect(reverb);
+
+    osc.start(now);
+    osc.stop(now + dur + 1.5);
+  });
+}
+
+// INHALE — ascending warm chord, brightens as it rises
+function soundInhale() {
+  playChord({
+    partials: [
+      [174.6, 0.20],   // F3 — root, grounding
+      [261.6, 0.13],   // C4 — fifth
+      [349.2, 0.09],   // F4 — octave
+      [523.3, 0.05],   // C5 — upper shimmer
+    ],
+    duration: DURATION, attack: 600, release: 800,
+    rising: true, wet: 0.70,
+  });
+}
+
+// HOLD TOP — bright, airy suspension — full lungs, expansive
+function soundHoldTop() {
+  playChord({
+    partials: [
+      [349.2, 0.11],   // F4
+      [523.3, 0.09],   // C5
+      [659.3, 0.06],   // E5 — adds brightness
+      [783.9, 0.03],   // G5 — shimmer
+    ],
+    duration: DURATION, attack: 900, release: 900,
+    rising: null, wet: 0.82,
+  });
+}
+
+// EXHALE — descending, melting downward
+function soundExhale() {
+  playChord({
+    partials: [
+      [261.6, 0.17],   // C4
+      [196.0, 0.12],   // G3
+      [174.6, 0.08],   // F3
+      [130.8, 0.05],   // C3 — settles into depth
+    ],
+    duration: DURATION, attack: 300, release: 1200,
+    rising: false, wet: 0.75,
+  });
+}
+
+// HOLD BOTTOM — bowl-bell strike marks the transition, then deep hum swells under it
+// The bell gives an unmistakable "landed" moment after the exhale drift
+function soundHoldBottom() {
+  if (!soundOn) return;
+  const ctx = getCtx();
+  const reverb = makeReverb(ctx);
+  const now = ctx.currentTime;
+  const dur = DURATION / 1000;
+
+  // ── Deep hum swells in after the transition gong ──
+  [[87.3, 0.13], [130.8, 0.07], [174.6, 0.03]].forEach(([freq, pg]) => {
+    const osc  = ctx.createOscillator();
+    const filt = ctx.createBiquadFilter();
+    const g    = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    filt.type = 'lowpass'; filt.frequency.value = 400;
+
+    // silent during bell, then slow swell
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(0,  now + 0.5);
+    g.gain.linearRampToValueAtTime(pg, now + 2.2);
+    g.gain.setValueAtTime(pg, now + dur - 1.0);
+    g.gain.linearRampToValueAtTime(0,  now + dur);
+
+    const wetG = ctx.createGain(); wetG.gain.value = 0.88;
+    const dryG = ctx.createGain(); dryG.gain.value = 0.12;
+    osc.connect(filt); filt.connect(g);
+    g.connect(wetG); wetG.connect(reverb);
+    g.connect(dryG); dryG.connect(ctx.destination);
+    osc.start(now); osc.stop(now + dur + 1.5);
+  });
+}
+
+const phaseSounds = [soundInhale, soundHoldTop, soundExhale, soundHoldBottom];
+
+// Subtle transition gong — soft singing-bowl strike at every phase change
+function soundGong() {
+  if (!soundOn) return;
+  const ctx = getCtx();
+  const reverb = makeReverb(ctx);
+  const now = ctx.currentTime;
+  [[220.0, 0, 0.18], [220.0, 17, 0.09], [330.0, -11, 0.05]].forEach(([freq, det, pg]) => {
+    const osc = ctx.createOscillator();
+    const g   = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    osc.detune.value = det;
+    g.gain.setValueAtTime(pg, now);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 2.0);
+    const wetG = ctx.createGain(); wetG.gain.value = 0.72;
+    const dryG = ctx.createGain(); dryG.gain.value = 0.28;
+    osc.connect(g);
+    g.connect(wetG); wetG.connect(reverb);
+    g.connect(dryG); dryG.connect(ctx.destination);
+    osc.start(now); osc.stop(now + 2.5);
+  });
+}
+
+// ─── DOM ─────────────────────────────────────────────────────────────────────
+const dot         = document.getElementById('dot');
+const phaseLabel  = document.getElementById('phase-label');
+const countEl     = document.getElementById('count');
+const instruction = document.getElementById('instruction');
+const btn         = document.getElementById('btn');
+const btnSound    = document.getElementById('btn-sound');
+const pipsEl      = document.getElementById('pips');
+const roundsText  = document.getElementById('rounds-text');
+
+const lines = {
+  left:   document.getElementById('line-left'),
+  top:    document.getElementById('line-top'),
+  right:  document.getElementById('line-right'),
+  bottom: document.getElementById('line-bottom'),
+};
+const corners = {
+  tl: document.getElementById('c-tl'),
+  tr: document.getElementById('c-tr'),
+  br: document.getElementById('c-br'),
+  bl: document.getElementById('c-bl'),
+};
+const sideCorners = {
+  left: ['tl','bl'], top: ['tl','tr'], right: ['tr','br'], bottom: ['bl','br'],
+};
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let running = false, animFrame = null, startTime = null;
+let phaseIndex = 0, round = 0;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const toPixels = pct => [pct[0] / 100 * 280, pct[1] / 100 * 280];
+
+function placeDot(pct) {
+  const [x, y] = toPixels(pct);
+  dot.style.left = x + 'px';
+  dot.style.top  = y + 'px';
+}
+
+function buildPips() {
+  pipsEl.innerHTML = '';
+  for (let i = 0; i < TOTAL_ROUNDS; i++) {
+    const p = document.createElement('div');
+    p.className = 'pip'; p.id = `pip-${i}`;
+    pipsEl.appendChild(p);
+  }
+}
+
+function updatePips() {
+  for (let i = 0; i < TOTAL_ROUNDS; i++)
+    document.getElementById(`pip-${i}`).classList.toggle('done', i < round);
+}
+
+function setActiveSide(side) {
+  Object.entries(lines).forEach(([k, el]) => el.classList.toggle('active', k === side));
+  Object.entries(corners).forEach(([k, el]) =>
+    el.classList.toggle('lit', sideCorners[side].includes(k)));
+}
+
+function clearActiveSide() {
+  Object.values(lines).forEach(el => el.classList.remove('active'));
+  Object.values(corners).forEach(el => el.classList.remove('lit'));
+}
+
+// ─── Engine ───────────────────────────────────────────────────────────────────
+function startPhase(index) {
+  phaseIndex = index % phases.length;
+  const phase = phases[phaseIndex];
+
+  phaseLabel.textContent  = phase.name;
+  instruction.textContent = phase.instruction;
+  setActiveSide(phase.side);
+  placeDot(phase.from);
+  soundGong();
+  phaseSounds[phaseIndex]();
+
+  startTime = performance.now();
+
+  function tick(now) {
+    if (!running) return;
+    const elapsed = now - startTime;
+    const t = Math.min(elapsed / DURATION, 1);
+    const [fx,fy] = phase.from, [tx,ty] = phase.to;
+    placeDot([fx + (tx-fx)*t, fy + (ty-fy)*t]);
+    countEl.textContent = `${Math.max(1, Math.ceil((DURATION - elapsed) / 1000))}`;
+
+    if (elapsed >= DURATION) {
+      placeDot(phase.to);
+      const next = phaseIndex + 1;
+      if (next % phases.length === 0) {
+        round++;
+        updatePips();
+        roundsText.textContent = `Runde ${Math.min(round, TOTAL_ROUNDS)} / ${TOTAL_ROUNDS}`;
+        if (round >= TOTAL_ROUNDS) { finish(); return; }
+      }
+      startPhase(next);
+      return;
+    }
+    animFrame = requestAnimationFrame(tick);
+  }
+  animFrame = requestAnimationFrame(tick);
+}
+
+function start() {
+  running = true; round = 0; phaseIndex = 0;
+  btn.textContent = 'Stop';
+  buildPips(); updatePips();
+  roundsText.textContent = `Runde 1 / ${TOTAL_ROUNDS}`;
+  startPhase(0);
+}
+
+function stop() {
+  running = false; cancelAnimationFrame(animFrame);
+  btn.textContent = 'Start';
+  phaseLabel.textContent = '—'; countEl.textContent = '';
+  instruction.textContent = 'Drücke Start um zu beginnen';
+  roundsText.textContent = '';
+  clearActiveSide(); placeDot([0, 100]);
+}
+
+function finish() {
+  running = false; cancelAnimationFrame(animFrame);
+  btn.textContent = 'Erneut';
+  phaseLabel.textContent = 'Fertig'; countEl.textContent = '';
+  instruction.textContent = `${TOTAL_ROUNDS} Runden abgeschlossen`;
+  roundsText.textContent = '';
+  clearActiveSide(); placeDot([0, 100]);
+}
+
+// ─── Events ───────────────────────────────────────────────────────────────────
+btn.addEventListener('click', () => running ? stop() : start());
+
+btnSound.addEventListener('click', () => {
+  soundOn = !soundOn;
+  btnSound.textContent = soundOn ? '♪ Ton an' : '♪ Ton aus';
+  btnSound.classList.toggle('on', soundOn);
+});
+
+// Init
+buildPips();
+placeDot([0, 100]);
+</script>
+</body>
+</html>
